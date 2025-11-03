@@ -1,0 +1,93 @@
+# 1. Carregamento e Inspeção
+
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier 
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import classification_report, accuracy_score
+
+df_diabetes = pd.read_csv('../archive/diabetes.csv')
+
+df_diabetes.info()
+df_diabetes.describe()
+
+# 2. Limpeza (Tratamento dos Zeros)
+
+#2.1 Substitua Zeros por NaN
+
+df_diabetes.replace(0, np.nan)
+
+#2.2 Imputação
+
+media = df_diabetes.mean()
+
+df_diabetes.fillna(media, inplace=True)
+
+# 3. Modelagem e Avaliação
+# 3.1 Defina o Target 
+
+df_diabetes['Outcome'], uniques = pd.factorize(df_diabetes['Outcome'])
+
+# 3.2 Definição de X e y
+
+X = df_diabetes[['Pregnancies','Glucose','BloodPressure','SkinThickness','Insulin','BMI','DiabetesPedigreeFunction','Age']]
+y = df_diabetes['Outcome']
+
+# 3.3 separação de Treino/teste 80/20
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.20, random_state=42)
+
+# 3.4 Scaling
+
+scaler = StandardScaler()
+
+# 3.5.1  FIT (Ajustar) e TRANSFORM (Transformar) apenas no treino
+
+X_train_scaled = scaler.fit_transform(X_train)
+
+# 3.5.2 Transformar APENAS no teste (usando os parâmetros aprendidos em X_train)
+X_test_scaled = scaler.transform(X_test) 
+
+# 3.6 Treinamento RandomForest
+
+modelo_random = RandomForestClassifier(random_state=42)
+modelo_random.fit(X_train_scaled, y_train)
+
+# 3.7 Tuning GridSearch
+
+# 3.7.1 criar parametro 
+
+param_grid ={
+    'n_estimators': [50, 100, 200]
+}
+
+# 3.7.2 Configurar Grid
+
+rf_grid = GridSearchCV(
+    estimator=modelo_random,
+    param_grid=param_grid,
+    cv=5,
+    scoring='accuracy',
+    n_jobs= -1 # Usa todos os núcleos do processador para acelerar
+)
+#  3.7.3 Ajuste (Treinamento do GridSearch)
+
+rf_grid.fit(X_train_scaled, y_train)
+
+# 4 Avaliação
+
+# Obter o melhor modelo ajustado pelo GridSearch
+best_rf_model = rf_grid.best_estimator_
+
+# Previsão no conjunto de teste escalado
+y_pred_final = best_rf_model.predict(X_test_scaled)
+
+# Cálculo da Acurácia Final 
+acuracia_final = accuracy_score(y_test, y_pred_final)
+
+print(f"\n--- Avaliação Final do Modelo Tunado ---")
+print(f"Acurácia Final nos Dados de Teste: {acuracia_final:.4f}")
+print("\nRelatório de Classificação:")
+print(classification_report(y_test, y_pred_final))
